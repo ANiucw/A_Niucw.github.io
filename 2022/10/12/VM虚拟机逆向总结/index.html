@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 6.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="逆向中的虚拟机保护是一种基于虚拟机的代码保护技术。它将基于x86汇编系统中的可执行代码转换为字节码指令系统的代码，来达到不被轻易逆向和篡改的目的。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="VM虚拟机逆向总结">
+<meta property="og:url" content="http://example.com/2022/10/12/VM%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%86%E5%90%91%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="A_Niucw的小屋">
+<meta property="og:description" content="逆向中的虚拟机保护是一种基于虚拟机的代码保护技术。它将基于x86汇编系统中的可执行代码转换为字节码指令系统的代码，来达到不被轻易逆向和篡改的目的。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://s2.loli.net/2022/10/12/xP3Mkwv45OjqN7d.png">
+<meta property="og:image" content="https://s2.loli.net/2022/10/12/qace8wxXILPJ1fM.png">
+<meta property="article:published_time" content="2022-10-12T07:11:41.749Z">
+<meta property="article:modified_time" content="2022-10-14T11:31:53.830Z">
+<meta property="article:author" content="A_Niucw">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s2.loli.net/2022/10/12/xP3Mkwv45OjqN7d.png">
+
+<link rel="canonical" href="http://example.com/2022/10/12/VM%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%86%E5%90%91%E6%80%BB%E7%BB%93/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>VM虚拟机逆向总结 | A_Niucw的小屋</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="A_Niucw的小屋" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">A_Niucw的小屋</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/10/12/VM%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%86%E5%90%91%E6%80%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="A_Niucw">
+      <meta itemprop="description" content="静下来搞技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="A_Niucw的小屋">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          VM虚拟机逆向总结
+        </h1>
+
+        <div class="post-meta">
+	
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-10-12 15:11:41" itemprop="dateCreated datePublished" datetime="2022-10-12T15:11:41+08:00">2022-10-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-10-14 19:31:53" itemprop="dateModified" datetime="2022-10-14T19:31:53+08:00">2022-10-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/reverse/" itemprop="url" rel="index"><span itemprop="name">reverse</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>逆向中的虚拟机保护是一种基于虚拟机的代码保护技术。它将基于x86汇编系统中的可执行代码转换为字节码指令系统的代码，来达到不被轻易逆向和篡改的目的。</p>
+<span id="more"></span>
+
+<h1 id="VM虚拟机逆向总结"><a href="#VM虚拟机逆向总结" class="headerlink" title="VM虚拟机逆向总结"></a>VM虚拟机逆向总结</h1><p>借着搭建了个新博客，加上研一没有太多的任务要做，所以打算把之前学习的逆向内容进行一些总结，同时也借着这个机会回顾一下之前学过的逆向知识点。后面的时打算先扎根在apt病毒样本分析，希望这篇博文也能给大家带来些许的帮助。</p>
+<p>本次是VM相关的内容。</p>
+<h2 id="VM定义-x2F-原理"><a href="#VM定义-x2F-原理" class="headerlink" title="VM定义&#x2F;原理"></a>VM定义&#x2F;原理</h2><h3 id="VM的定义："><a href="#VM的定义：" class="headerlink" title="VM的定义："></a>VM的定义：</h3><p>逆向中的虚拟机保护是一种基于虚拟机的代码保护技术。它将基于x86汇编系统中的可执行代码转换为字节码指令系统的代码，来达到不被轻易逆向和篡改的目的。</p>
+<h3 id="解释"><a href="#解释" class="headerlink" title="解释"></a>解释</h3><p>虚拟机：自己定义一套指令，在程序中能有一套函数和结构解释自己定义的指令并执行功能。</p>
+<p>vm（虚拟机保护）：是一种基于虚拟机的代码保护技术。他将基于x86汇编系统中的可执行代码转换为字节码指令系统的代码。来达到不被轻易篡改和逆向的目的。</p>
+<p><img src="https://s2.loli.net/2022/10/12/xP3Mkwv45OjqN7d.png" alt="vm.png"></p>
+<p>框图解释</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">VMRUN:虚拟机入口函数</span><br><span class="line">dispatcher：调度器，用于解释opcode，并选择对应的Handler函数执行，当Handler执行完后会跳回这里，形成一个循环。</span><br><span class="line">opcode：程序可执行代码转换成的操作码</span><br><span class="line">Handler：各种功能对象模块</span><br></pre></td></tr></table></figure>
+
+<p>当然这里的虚拟机并不是指VMWare\VirtualBox之类的虚拟机，它更像是一个用于解释系统函数的一个小型模拟器。</p>
+<h2 id="VM调度方式"><a href="#VM调度方式" class="headerlink" title="VM调度方式"></a>VM调度方式</h2><h3 id="switch"><a href="#switch" class="headerlink" title="switch :"></a><strong>switch</strong> :</h3><p>最常见的方式， 一般opcode-&gt;handler会一对一</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span> (<span class="number">1</span>)&#123;</span><br><span class="line">	<span class="keyword">switch</span> (prog[pc]) &#123;</span><br><span class="line">            opcode1: </span><br><span class="line">                handler1;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            opcode2:</span><br><span class="line">                handler2;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            .......</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="ifnest"><a href="#ifnest" class="headerlink" title="ifnest :"></a><strong>ifnest</strong> :</h3><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span> (<span class="number">1</span>) &#123;</span><br><span class="line">	<span class="keyword">if</span> (prog[pc]==op1) </span><br><span class="line">        handler1;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (prog[pc]==op2) </span><br><span class="line">        handler2;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> …</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>direct</strong> :</p>
+<p>直接跳转， 分成一个个小段， 然后运行最后直接跳转到下一个应该的handler去运行</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">goto</span> *prog[pc];</span><br><span class="line"></span><br><span class="line">opcode1: </span><br><span class="line">	handler1; </span><br><span class="line"><span class="keyword">goto</span> *prog[pc];</span><br><span class="line"></span><br><span class="line">opcode2: </span><br><span class="line">	handler2; </span><br><span class="line"><span class="keyword">goto</span> *prog[pc];</span><br><span class="line"></span><br><span class="line">....</span><br></pre></td></tr></table></figure>
+
+<p><strong>indirect</strong> :</p>
+<p>间接跳转， 比上个直接跳转增加了个表， 通过表进行跳转，这样的情况下，opcode-&gt;handler会因为表的原因打乱，也可能存在多对一情况。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">goto</span> *jtab[prog[pc]];</span><br><span class="line"></span><br><span class="line">handler1; </span><br><span class="line"><span class="keyword">goto</span> *jtab[prog[pc]];</span><br><span class="line"></span><br><span class="line">handler2;</span><br><span class="line"><span class="keyword">goto</span> *jtab[prog[pc]];</span><br></pre></td></tr></table></figure>
+
+<p><strong>call</strong> :</p>
+<p>情况每个handler设置一个函数，检索和函数调用的方式对opcode调用不同的函数，应该也是opcode-&gt;handler一对一映射</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">op1fun</span><span class="params">()</span></span>&#123;handler1&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">op2fun</span><span class="params">()</span></span>&#123;handler2&#125;</span><br><span class="line">.....</span><br><span class="line">    </span><br><span class="line">call *prog[pc]();</span><br></pre></td></tr></table></figure>
+
+<p><strong>linear, binary, interpolation</strong> :</p>
+<p>线性运算 插入值， 这里是在top做一个opcode-&gt;handler映射，然后跳转到对应handler运行，运行后跳转回到top继续。这种情况因为映射的关系，很容易造成多对一的情况，并且对应的位置比前面几个情况更难把握。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">top: </span><br><span class="line">   <span class="keyword">goto</span> *(<span class="built_in">searchalg</span>(map,prog[pc]));</span><br><span class="line"></span><br><span class="line">handler1; </span><br><span class="line"><span class="keyword">goto</span> top;</span><br><span class="line"></span><br><span class="line">handler2; </span><br><span class="line"><span class="keyword">goto</span> top;</span><br></pre></td></tr></table></figure>
+
+<h2 id="VM相关例题"><a href="#VM相关例题" class="headerlink" title="VM相关例题"></a>VM相关例题</h2><h3 id="WxyVM1（经典VM逆向题目）"><a href="#WxyVM1（经典VM逆向题目）" class="headerlink" title="WxyVM1（经典VM逆向题目）"></a>WxyVM1（经典VM逆向题目）</h3><p>这是一个非常基础的VM逆向题目，基础的甚至连VM的特点也不是特别明显。</p>
+<p>打开程序进行分析，输入结果后程序执行了一个函数sub_4005B6，先不管这个函数后面判断程序的长度是24。往下是一个大循环，循环判断flag与一个结构是否相同，所以在前面那个函数肯定对flag的值进行了操作。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__int64 __fastcall <span class="title">main</span><span class="params">(<span class="type">int</span> a1, <span class="type">char</span> **a2, <span class="type">char</span> **a3)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">char</span> v4; <span class="comment">// [rsp+Bh] [rbp-5h]</span></span><br><span class="line">  <span class="type">int</span> i; <span class="comment">// [rsp+Ch] [rbp-4h]</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;[WxyVM 0.0.1]&quot;</span>);</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;input your flag:&quot;</span>);</span><br><span class="line">  <span class="built_in">scanf</span>(<span class="string">&quot;%s&quot;</span>, &amp;flag);</span><br><span class="line">  v4 = <span class="number">1</span>;</span><br><span class="line">  <span class="built_in">sub_4005B6</span>();                                 <span class="comment">// vm对应函数</span></span><br><span class="line">  <span class="keyword">if</span> ( <span class="built_in">strlen</span>(&amp;flag) != <span class="number">24</span> )                    <span class="comment">// 长度为24</span></span><br><span class="line">    v4 = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">for</span> ( i = <span class="number">0</span>; i &lt;= <span class="number">23</span>; ++i )</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">if</span> ( *(&amp;flag + i) != dword_601060[i] )  </span><br><span class="line">      v4 = <span class="number">0</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> ( v4 )</span><br><span class="line">    <span class="built_in">puts</span>(<span class="string">&quot;correct&quot;</span>);</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    <span class="built_in">puts</span>(<span class="string">&quot;wrong&quot;</span>);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0LL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>进入函数发现一个明显的switch结构，前面我们知道了switch是常见的vm结构。程序执行了一个从0-14999的循环，循环步长是3。而下面的操作都是针对opcode的相关的操作（无论是switch每次取的不同的操作码，还是中间值v0,v2,v3）。每个case对应着不同的操作过程，分写这些过程发现这些过程都是只针对flag和v2的数据操作</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__int64 <span class="title">sub_4005B6</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  __int64 v0; <span class="comment">// rax</span></span><br><span class="line">  <span class="type">int</span> i; <span class="comment">// [rsp+0h] [rbp-10h]</span></span><br><span class="line">  <span class="type">char</span> v2; <span class="comment">// [rsp+8h] [rbp-8h]</span></span><br><span class="line">  <span class="type">int</span> v3; <span class="comment">// [rsp+Ch] [rbp-4h]</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">for</span> ( i = <span class="number">0</span>; i &lt;= <span class="number">14999</span>; i += <span class="number">3</span> )</span><br><span class="line">  &#123;</span><br><span class="line">    v2 = opcode[i + <span class="number">2</span>];                         <span class="comment">// v2是操作数</span></span><br><span class="line">    v3 = opcode[i + <span class="number">1</span>];</span><br><span class="line">    v0 = (<span class="type">unsigned</span> <span class="type">int</span>)opcode[i];               <span class="comment">// v0代表要对输入的字符串进行怎么样的操作</span></span><br><span class="line">    <span class="keyword">switch</span> ( opcode[i] )</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">1</span>:</span><br><span class="line">        v0 = opcode[i + <span class="number">1</span>];</span><br><span class="line">        *(&amp;flag + v3) += v2;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">2</span>:</span><br><span class="line">        v0 = opcode[i + <span class="number">1</span>];</span><br><span class="line">        *(&amp;flag + v3) -= v2;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">3</span>:</span><br><span class="line">        v0 = opcode[i + <span class="number">1</span>];</span><br><span class="line">        *(&amp;flag + v3) ^= v2;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">4</span>:</span><br><span class="line">        v0 = opcode[i + <span class="number">1</span>];</span><br><span class="line">        *(&amp;flag + v3) *= v2;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">5</span>:</span><br><span class="line">        v0 = opcode[i + <span class="number">1</span>];</span><br><span class="line">        *(&amp;flag + v3) ^= *(&amp;flag + opcode[i + <span class="number">2</span>]);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">default</span>:</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;                                          </span><br><span class="line">  <span class="keyword">return</span> v0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以可以直接使用idc进行数据提取和算法逆向：</p>
+<p>相关代码</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#idapython需要添加上idc库</span></span><br><span class="line"><span class="keyword">from</span> idc_bc695 <span class="keyword">import</span> *</span><br><span class="line"><span class="comment">#提取最后需要比较的结果</span></span><br><span class="line">arr = [<span class="number">0xFFFFFFC4</span>, <span class="number">0x00000034</span>, <span class="number">0x00000022</span>, <span class="number">0xFFFFFFB1</span>, <span class="number">0xFFFFFFD3</span>, <span class="number">0x00000011</span>, <span class="number">0xFFFFFF97</span>, <span class="number">0x00000007</span>, <span class="number">0xFFFFFFDB</span>, <span class="number">0x00000037</span>, <span class="number">0xFFFFFFC4</span>, <span class="number">0x00000006</span>, <span class="number">0x0000001D</span>, <span class="number">0xFFFFFFFC</span>, <span class="number">0x0000005B</span>, <span class="number">0xFFFFFFED</span>, <span class="number">0xFFFFFF98</span>, <span class="number">0xFFFFFFDF</span>, <span class="number">0xFFFFFF94</span>, <span class="number">0xFFFFFFD8</span>, <span class="number">0xFFFFFFB3</span>, <span class="number">0xFFFFFF84</span>, <span class="number">0xFFFFFFCC</span>, <span class="number">0x00000008</span>]</span><br><span class="line">addr = <span class="number">0x6010C0</span><span class="comment">#opcode的地址</span></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">14997</span>,-<span class="number">1</span>,-<span class="number">3</span>):<span class="comment">#反向进行遍历，14997是能除尽的最大值</span></span><br><span class="line">    v2 = Byte(addr+i+<span class="number">2</span>)<span class="comment">#Byte将对应地址的数据以Byte进行解析</span></span><br><span class="line">    v3 = Byte(addr+i+<span class="number">1</span>)</span><br><span class="line">    v0 = Byte(addr+i)</span><br><span class="line">    <span class="keyword">if</span> v0 == <span class="number">1</span>:</span><br><span class="line">        arr[v3] -= v2</span><br><span class="line">    <span class="keyword">if</span> v0 == <span class="number">2</span>:</span><br><span class="line">        arr[v3] += v2</span><br><span class="line">    <span class="keyword">if</span> v0 == <span class="number">3</span>:</span><br><span class="line">        arr[v3] ^= v2</span><br><span class="line">    <span class="keyword">if</span> v0 == <span class="number">4</span>:</span><br><span class="line">        arr[v3] /= v2</span><br><span class="line">    <span class="keyword">if</span> v0 == <span class="number">5</span>:</span><br><span class="line">        arr[v3] ^= arr[v2]</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> arr:</span><br><span class="line">    i &amp;= <span class="number">0xff</span><span class="comment">#防止溢出</span></span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&#x27;&#x27;</span>.join(<span class="built_in">chr</span>(i)),end=<span class="string">&#x27;&#x27;</span>)</span><br><span class="line"><span class="comment">#nctf&#123;Embr4ce_Vm_j0in_R3&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="WxyVM2（经典VM逆向题目）"><a href="#WxyVM2（经典VM逆向题目）" class="headerlink" title="WxyVM2（经典VM逆向题目）"></a>WxyVM2（经典VM逆向题目）</h3><p>使用ida打开程序，定位到关键函数，发现没法f5进行反编译。修改ida的cfg文件夹下的hexray.cfg文件中的MAX_FUNCSIZE &#x3D; 1024 ，重新打开程序发现可以进行反编译了，不过因为函数过长所以需要一段时间。</p>
+<p>反编译之后存在大量类似于dword_69417C ^&#x3D; dword_694178这样的代码，对比最后发现与flag进行比较的内容没关系，判断是混淆代码，而类似于byte_694100这样的代码是我们需要进行提取的重点，所以我们下一步需要对关键位置进行代码提取。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__int64 __fastcall <span class="title">main</span><span class="params">(<span class="type">int</span> a1, <span class="type">char</span> **a2, <span class="type">char</span> **a3)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">bool</span> v4; <span class="comment">// [rsp+Bh] [rbp-5h]</span></span><br><span class="line">  <span class="type">int</span> i; <span class="comment">// [rsp+Ch] [rbp-4h]</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;[WxyVM 0.0.2]&quot;</span>);</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;input your flag:&quot;</span>);</span><br><span class="line">  <span class="built_in">scanf</span>(<span class="string">&quot;%s&quot;</span>, &amp;byte_694100);</span><br><span class="line">  v4 = <span class="built_in">strlen</span>(&amp;byte_694100) == <span class="number">25</span>;</span><br><span class="line">  dword_694140 = <span class="number">-1677284711</span>;</span><br><span class="line">  byte_694117 += <span class="number">11</span>;</span><br><span class="line">  byte_694103 += <span class="number">31</span>;</span><br><span class="line">  dword_69417C ^= dword_694178;</span><br><span class="line">  dword_694180 ^= dword_69417C;</span><br><span class="line">  dword_694184 ^= dword_694180;</span><br><span class="line">  dword_694188 ^= dword_694184;</span><br><span class="line">  dword_69418C ^= dword_694188;</span><br><span class="line">  dword_694190 ^= dword_69418C;</span><br><span class="line">  dword_694194 ^= dword_694190;</span><br><span class="line">  dword_6941B4 ^= dword_6941B0;</span><br><span class="line">  dword_6941B8 ^= dword_6941B4;</span><br><span class="line">  dword_6941BC ^= dword_6941B8;</span><br><span class="line">  dword_6941C0 ^= dword_6941BC;</span><br><span class="line">  <span class="comment">//.......</span></span><br><span class="line">  dword_694150 = <span class="number">-1304438312</span>;</span><br><span class="line">  dword_694154 = <span class="number">-1859898891</span>;</span><br><span class="line">  dword_694158 = <span class="number">871339566</span>;</span><br><span class="line">  dword_6941CC ^= dword_6941C8;</span><br><span class="line">  dword_6941D0 ^= dword_6941CC;</span><br><span class="line">  dword_6941D4 ^= dword_6941D0;</span><br><span class="line">  dword_6941D8 ^= dword_6941D4;</span><br><span class="line">  dword_6941DC ^= dword_6941D8;</span><br><span class="line">  dword_6941E0 ^= dword_6941DC;</span><br><span class="line">  byte_694102 ^= <span class="number">0xB</span>u;</span><br><span class="line">  byte_694100 ^= <span class="number">0x5E</span>u;</span><br><span class="line">  byte_694111 += <span class="number">69</span>;</span><br><span class="line">  byte_694109 += <span class="number">7</span>;</span><br><span class="line">  <span class="keyword">for</span> ( i = <span class="number">0</span>; i &lt;= <span class="number">24</span>; ++i )</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">if</span> ( *(&amp;byte_694100 + i) != dword_694060[i] )</span><br><span class="line">      v4 = <span class="number">0</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> ( v4 )</span><br><span class="line">    <span class="built_in">puts</span>(<span class="string">&quot;correct&quot;</span>);</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    <span class="built_in">puts</span>(<span class="string">&quot;wrong&quot;</span>);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0LL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>将混淆代码提取出来放进文件里进行筛选，这里使用大佬提供的筛选代码。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> os</span><br><span class="line">f1=<span class="built_in">open</span>(<span class="string">&quot;c.txt&quot;</span>,<span class="string">&quot;r&quot;</span>)</span><br><span class="line">f2=<span class="built_in">open</span>(<span class="string">&quot;d.txt&quot;</span>,<span class="string">&quot;w&quot;</span>)</span><br><span class="line">f1=f1.read()</span><br><span class="line">s=f1.replace(<span class="string">&quot;\n&quot;</span>,<span class="string">&quot;&quot;</span>)</span><br><span class="line">s=s.replace(<span class="string">&quot; &quot;</span>,<span class="string">&quot;&quot;</span>)</span><br><span class="line">s=s.replace(<span class="string">&quot;u&quot;</span>,<span class="string">&quot;&quot;</span>)</span><br><span class="line">a=s.split(<span class="string">&quot;;&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(<span class="built_in">len</span>(a))</span><br><span class="line"><span class="comment">#25014</span></span><br><span class="line"><span class="built_in">print</span>(a)</span><br><span class="line">a=a[<span class="number">0</span>:<span class="number">25013</span>]<span class="comment">#取非0的数据</span></span><br><span class="line"><span class="comment"># print(a)</span></span><br><span class="line">w=[]</span><br><span class="line">ss=<span class="string">&quot;&quot;</span></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> a[::-<span class="number">1</span>]:<span class="comment">#反向取字符串</span></span><br><span class="line">  <span class="keyword">if</span> i[<span class="number">0</span>]==<span class="string">&#x27;b&#x27;</span>:<span class="comment">#开头的字符串是&#x27;b&#x27;开头的内容时，拼接到初始字符串上并添加一个换行符</span></span><br><span class="line">    ss+=i+<span class="string">&quot;\n&quot;</span></span><br><span class="line">ss=ss.replace(<span class="string">&quot;+&quot;</span>,<span class="string">&quot;$&quot;</span>)<span class="comment">#取一个中间变量$将+-互换</span></span><br><span class="line">ss=ss.replace(<span class="string">&quot;-&quot;</span>,<span class="string">&quot;+&quot;</span>)</span><br><span class="line">ss=ss.replace(<span class="string">&quot;$&quot;</span>,<span class="string">&quot;-&quot;</span>)</span><br><span class="line">ss=ss.replace(<span class="string">&quot;byte_&quot;</span>,<span class="string">&quot;arr[&quot;</span>)</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">65</span>,<span class="number">71</span>,<span class="number">1</span>):</span><br><span class="line">  ss=ss.replace(<span class="built_in">chr</span>(i),<span class="built_in">chr</span>(i+<span class="number">32</span>)) <span class="comment">#将大写换成小写，为了下面hex函数，之后替换作铺垫</span></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">25</span>):<span class="comment">#25次使用索引值i]代替0x694100+i的值</span></span><br><span class="line">  ss=ss.replace(<span class="built_in">str</span>(<span class="built_in">hex</span>(<span class="number">0x694100</span>+i)).replace(<span class="string">&quot;0x&quot;</span>,<span class="string">&quot;&quot;</span>),<span class="built_in">str</span>(i)+<span class="string">&quot;]&quot;</span>)</span><br><span class="line">f2.write(ss)</span><br><span class="line"><span class="comment"># print(ss)</span></span><br></pre></td></tr></table></figure>
+
+<p>筛选后的代码如图</p>
+<p><img src="https://s2.loli.net/2022/10/12/qace8wxXILPJ1fM.png" alt="code.png"></p>
+<p>后面直接写脚本打印flag即可</p>
+<h3 id="signal（2020网鼎杯青龙组题目）"><a href="#signal（2020网鼎杯青龙组题目）" class="headerlink" title="signal（2020网鼎杯青龙组题目）"></a>signal（2020网鼎杯青龙组题目）</h3><p>找到main函数，定位到关键位置，发现qmemcpy函数将一个长字段复制到v4中，后面作为参数传递到定义的函数内部。并且传递了114这个数据。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> __cdecl <span class="title">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">const</span> <span class="type">char</span> **argv, <span class="type">const</span> <span class="type">char</span> **envp)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">int</span> v4[<span class="number">117</span>]; <span class="comment">// [esp+18h] [ebp-1D4h] BYREF</span></span><br><span class="line"></span><br><span class="line">  __main();</span><br><span class="line">  <span class="built_in">qmemcpy</span>(v4, &amp;unk_403040, <span class="number">0x1C8</span>u);             <span class="comment">// 操作数复制到v4</span></span><br><span class="line">  <span class="built_in">vm_operad</span>(v4, <span class="number">114</span>);                           <span class="comment">// VM函数</span></span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;good,The answer format is:flag &#123;&#125;&quot;</span>);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>而我们打开&amp;unk_403040位置发现是这样一段内容，现在我们还不知道这段数据用来做什么，所以推测后面可能使用它作为程序执行中的操作数或者操作码（VM操作码）</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">int</span> unk_403040[<span class="number">128</span>] = &#123;</span><br><span class="line">    <span class="number">0x0000000A</span>, <span class="number">0x00000004</span>, <span class="number">0x00000010</span>, <span class="number">0x00000008</span>, <span class="number">0x00000003</span>, <span class="number">0x00000005</span>, <span class="number">0x00000001</span>, <span class="number">0x00000004</span>, </span><br><span class="line">    <span class="number">0x00000020</span>, <span class="number">0x00000008</span>, <span class="number">0x00000005</span>, <span class="number">0x00000003</span>, <span class="number">0x00000001</span>, <span class="number">0x00000003</span>, <span class="number">0x00000002</span>, <span class="number">0x00000008</span>, </span><br><span class="line">    <span class="number">0x0000000B</span>, <span class="number">0x00000001</span>, <span class="number">0x0000000C</span>, <span class="number">0x00000008</span>, <span class="number">0x00000004</span>, <span class="number">0x00000004</span>, <span class="number">0x00000001</span>, <span class="number">0x00000005</span>, </span><br><span class="line">    <span class="number">0x00000003</span>, <span class="number">0x00000008</span>, <span class="number">0x00000003</span>, <span class="number">0x00000021</span>, <span class="number">0x00000001</span>, <span class="number">0x0000000B</span>, <span class="number">0x00000008</span>, <span class="number">0x0000000B</span>, </span><br><span class="line">    <span class="number">0x00000001</span>, <span class="number">0x00000004</span>, <span class="number">0x00000009</span>, <span class="number">0x00000008</span>, <span class="number">0x00000003</span>, <span class="number">0x00000020</span>, <span class="number">0x00000001</span>, <span class="number">0x00000002</span>, </span><br><span class="line">    <span class="number">0x00000051</span>, <span class="number">0x00000008</span>, <span class="number">0x00000004</span>, <span class="number">0x00000024</span>, <span class="number">0x00000001</span>, <span class="number">0x0000000C</span>, <span class="number">0x00000008</span>, <span class="number">0x0000000B</span>, </span><br><span class="line">    <span class="number">0x00000001</span>, <span class="number">0x00000005</span>, <span class="number">0x00000002</span>, <span class="number">0x00000008</span>, <span class="number">0x00000002</span>, <span class="number">0x00000025</span>, <span class="number">0x00000001</span>, <span class="number">0x00000002</span>, </span><br><span class="line">    <span class="number">0x00000036</span>, <span class="number">0x00000008</span>, <span class="number">0x00000004</span>, <span class="number">0x00000041</span>, <span class="number">0x00000001</span>, <span class="number">0x00000002</span>, <span class="number">0x00000020</span>, <span class="number">0x00000008</span>, </span><br><span class="line">    <span class="number">0x00000005</span>, <span class="number">0x00000001</span>, <span class="number">0x00000001</span>, <span class="number">0x00000005</span>, <span class="number">0x00000003</span>, <span class="number">0x00000008</span>, <span class="number">0x00000002</span>, <span class="number">0x00000025</span>, </span><br><span class="line">    <span class="number">0x00000001</span>, <span class="number">0x00000004</span>, <span class="number">0x00000009</span>, <span class="number">0x00000008</span>, <span class="number">0x00000003</span>, <span class="number">0x00000020</span>, <span class="number">0x00000001</span>, <span class="number">0x00000002</span>, </span><br><span class="line">    <span class="number">0x00000041</span>, <span class="number">0x00000008</span>, <span class="number">0x0000000C</span>, <span class="number">0x00000001</span>, <span class="number">0x00000007</span>, <span class="number">0x00000022</span>, <span class="number">0x00000007</span>, <span class="number">0x0000003F</span>, </span><br><span class="line">    <span class="number">0x00000007</span>, <span class="number">0x00000034</span>, <span class="number">0x00000007</span>, <span class="number">0x00000032</span>, <span class="number">0x00000007</span>, <span class="number">0x00000072</span>, <span class="number">0x00000007</span>, <span class="number">0x00000033</span>, </span><br><span class="line">    <span class="number">0x00000007</span>, <span class="number">0x00000018</span>, <span class="number">0x00000007</span>, <span class="number">0xFFFFFFA7</span>, <span class="number">0x00000007</span>, <span class="number">0x00000031</span>, <span class="number">0x00000007</span>, <span class="number">0xFFFFFFF1</span>, </span><br><span class="line">    <span class="number">0x00000007</span>, <span class="number">0x00000028</span>, <span class="number">0x00000007</span>, <span class="number">0xFFFFFF84</span>, <span class="number">0x00000007</span>, <span class="number">0xFFFFFFC1</span>, <span class="number">0x00000007</span>, <span class="number">0x0000001E</span>, </span><br><span class="line">    <span class="number">0x00000007</span>, <span class="number">0x0000007A</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, </span><br><span class="line">    <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span>, <span class="number">0x00000000</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>进入vm_operad函数;</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> __cdecl <span class="title">vm_operad</span><span class="params">(<span class="type">int</span> *a1, <span class="type">int</span> a2)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">int</span> result; <span class="comment">// eax</span></span><br><span class="line">  <span class="type">char</span> enc_flag[<span class="number">200</span>]; <span class="comment">// [esp+13h] [ebp-E5h] BYREF</span></span><br><span class="line">  <span class="type">char</span> v4; <span class="comment">// [esp+DBh] [ebp-1Dh]</span></span><br><span class="line">  <span class="type">int</span> v5; <span class="comment">// [esp+DCh] [ebp-1Ch]</span></span><br><span class="line">  <span class="type">int</span> v6; <span class="comment">// [esp+E0h] [ebp-18h]</span></span><br><span class="line">  <span class="type">int</span> v7; <span class="comment">// [esp+E4h] [ebp-14h]</span></span><br><span class="line">  <span class="type">int</span> v8; <span class="comment">// [esp+E8h] [ebp-10h]</span></span><br><span class="line">  <span class="type">int</span> v9; <span class="comment">// [esp+ECh] [ebp-Ch]</span></span><br><span class="line"></span><br><span class="line">  v9 = <span class="number">0</span>;</span><br><span class="line">  v8 = <span class="number">0</span>;</span><br><span class="line">  v7 = <span class="number">0</span>;</span><br><span class="line">  v6 = <span class="number">0</span>;</span><br><span class="line">  v5 = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">while</span> ( <span class="number">1</span> )</span><br><span class="line">  &#123;</span><br><span class="line">    result = v9;</span><br><span class="line">    <span class="keyword">if</span> ( v9 &gt;= a2 )                             <span class="comment">// a2 = 114</span></span><br><span class="line">      <span class="keyword">return</span> result;</span><br><span class="line">    <span class="keyword">switch</span> ( a1[v9] )                           <span class="comment">// a1是操作数，v9决定取哪个数据</span></span><br><span class="line">    &#123;                                           <span class="comment">// a1 = 10 4 8 3 1 4 8 5 1 3 8 11 1 12 8 4 1 5 8 3 1 11 8 11 1 4 8 3 1 2 8 4 1 12 8 11 1 5 8 2 1 2 8 4 1 2 8 5 1 5 8 2 1 4 8 3 1 2 8 12 1 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7</span></span><br><span class="line">      <span class="keyword">case</span> <span class="number">1</span>:</span><br><span class="line">        enc_flag[v6 + <span class="number">100</span>] = v4;</span><br><span class="line">        ++v9;</span><br><span class="line">        ++v6;</span><br><span class="line">        ++v8;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">2</span>:</span><br><span class="line">        v4 = a1[v9 + <span class="number">1</span>] + enc_flag[v8];</span><br><span class="line">        v9 += <span class="number">2</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">3</span>:</span><br><span class="line">        v4 = enc_flag[v8] - <span class="built_in">LOBYTE</span>(a1[v9 + <span class="number">1</span>]);</span><br><span class="line">        v9 += <span class="number">2</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">4</span>:</span><br><span class="line">        v4 = a1[v9 + <span class="number">1</span>] ^ enc_flag[v8];</span><br><span class="line">        v9 += <span class="number">2</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">5</span>:</span><br><span class="line">        v4 = a1[v9 + <span class="number">1</span>] * enc_flag[v8];</span><br><span class="line">        v9 += <span class="number">2</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">6</span>:</span><br><span class="line">        ++v9;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">7</span>:                                   <span class="comment">// case7的时候进行退出</span></span><br><span class="line">        <span class="keyword">if</span> ( enc_flag[v7 + <span class="number">100</span>] != a1[v9 + <span class="number">1</span>] ) <span class="comment">// 程序最后进行比较</span></span><br><span class="line">        &#123;                                       <span class="comment">// enc_flag = 34, 63, 52, 50, 114, 51, 24, -89, 49, -15, 40, -124, -63, 30, 122</span></span><br><span class="line">          <span class="built_in">printf</span>(<span class="string">&quot;what a shame...&quot;</span>);</span><br><span class="line">          <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        ++v7;</span><br><span class="line">        v9 += <span class="number">2</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">8</span>:</span><br><span class="line">        enc_flag[v5] = v4;</span><br><span class="line">        ++v9;</span><br><span class="line">        ++v5;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">10</span>:</span><br><span class="line">        <span class="built_in">read</span>(enc_flag);                         <span class="comment">// 输入点</span></span><br><span class="line">        ++v9;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">11</span>:</span><br><span class="line">        v4 = enc_flag[v8] - <span class="number">1</span>;</span><br><span class="line">        ++v9;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">12</span>:</span><br><span class="line">        v4 = enc_flag[v8] + <span class="number">1</span>;</span><br><span class="line">        ++v9;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">default</span>:</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>分析上面这段函数发现整个函数主体使用了switch..case…这样的结构，仔细观察case结构的时候发现也是不同的，case 10对应着输入点，输入长度限制为15，错误就退出。这样就意味着switch第一次执行的时候对应的a1[v9]值是10。也就对应复制的opcode的第一个数。因此基本可以判断这个程序使用了VM虚拟机技术进行加密。而这类技术使用不同的操作码对应不同的操作。</p>
+<p>继续分析VM函数的内容，程序使用a1[v9]来决定执行怎样的操作，我们可以修改代码，使我们随意输入15个字符。然后观察每次都使用哪个操作数（a1[v9]），同时可以把在case 7最后进行比较的数据打印出来，以便于我们下一步的求flag更改的代码如下：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">vmopcode</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> v5; <span class="comment">// [esp+dch] [ebp-1ch]</span></span><br><span class="line">    <span class="type">int</span> v6; <span class="comment">// [esp+e0h] [ebp-18h]</span></span><br><span class="line">    <span class="type">int</span> v7; <span class="comment">// [esp+e4h] [ebp-14h]</span></span><br><span class="line">    <span class="type">int</span> v8; <span class="comment">// [esp+e8h] [ebp-10h]</span></span><br><span class="line">    <span class="type">int</span> v9; <span class="comment">// [esp+ech] [ebp-ch]</span></span><br><span class="line">    v9 = <span class="number">0</span>;</span><br><span class="line">    v8 = <span class="number">0</span>;</span><br><span class="line">    v7 = <span class="number">0</span>;</span><br><span class="line">    v6 = <span class="number">0</span>;</span><br><span class="line">    v5 = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> a1[<span class="number">114</span>] = &#123;</span><br><span class="line">    <span class="number">0x0a</span>, <span class="number">0x04</span>, <span class="number">0x10</span>, <span class="number">0x08</span>, <span class="number">0x03</span>, <span class="number">0x05</span>, <span class="number">0x01</span>, <span class="number">0x04</span>,</span><br><span class="line">    <span class="number">0x20</span>, <span class="number">0x08</span>, <span class="number">0x05</span>, <span class="number">0x03</span>, <span class="number">0x01</span>, <span class="number">0x03</span>, <span class="number">0x02</span>, <span class="number">0x08</span>,</span><br><span class="line">    <span class="number">0x0b</span>, <span class="number">0x01</span>, <span class="number">0x0c</span>, <span class="number">0x08</span>, <span class="number">0x04</span>, <span class="number">0x04</span>, <span class="number">0x01</span>, <span class="number">0x05</span>,</span><br><span class="line">    <span class="number">0x03</span>, <span class="number">0x08</span>, <span class="number">0x03</span>, <span class="number">0x21</span>, <span class="number">0x01</span>, <span class="number">0x0b</span>, <span class="number">0x08</span>, <span class="number">0x0b</span>,</span><br><span class="line">    <span class="number">0x01</span>, <span class="number">0x04</span>, <span class="number">0x09</span>, <span class="number">0x08</span>, <span class="number">0x03</span>, <span class="number">0x20</span>, <span class="number">0x01</span>, <span class="number">0x02</span>,</span><br><span class="line">    <span class="number">0x51</span>, <span class="number">0x08</span>, <span class="number">0x04</span>, <span class="number">0x24</span>, <span class="number">0x01</span>, <span class="number">0x0c</span>, <span class="number">0x08</span>, <span class="number">0x0b</span>,</span><br><span class="line">    <span class="number">0x01</span>, <span class="number">0x05</span>, <span class="number">0x02</span>, <span class="number">0x08</span>, <span class="number">0x02</span>, <span class="number">0x25</span>, <span class="number">0x01</span>, <span class="number">0x02</span>,</span><br><span class="line">    <span class="number">0x36</span>, <span class="number">0x08</span>, <span class="number">0x04</span>, <span class="number">0x41</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="number">0x20</span>, <span class="number">0x08</span>,</span><br><span class="line">    <span class="number">0x05</span>, <span class="number">0x01</span>, <span class="number">0x01</span>, <span class="number">0x05</span>, <span class="number">0x03</span>, <span class="number">0x08</span>, <span class="number">0x02</span>, <span class="number">0x25</span>,</span><br><span class="line">    <span class="number">0x01</span>, <span class="number">0x04</span>, <span class="number">0x09</span>, <span class="number">0x08</span>, <span class="number">0x03</span>, <span class="number">0x20</span>, <span class="number">0x01</span>, <span class="number">0x02</span>,</span><br><span class="line">    <span class="number">0x41</span>, <span class="number">0x08</span>, <span class="number">0x0c</span>, <span class="number">0x01</span>, <span class="number">0x07</span>, <span class="number">0x22</span>, <span class="number">0x07</span>, <span class="number">0x3f</span>,</span><br><span class="line">    <span class="number">0x07</span>, <span class="number">0x34</span>, <span class="number">0x07</span>, <span class="number">0x32</span>, <span class="number">0x07</span>, <span class="number">0x72</span>, <span class="number">0x07</span>, <span class="number">0x33</span>,</span><br><span class="line">    <span class="number">0x07</span>, <span class="number">0x18</span>, <span class="number">0x07</span>, <span class="number">0xffffffa7</span>, <span class="number">0x07</span>, <span class="number">0x31</span>, <span class="number">0x07</span>, <span class="number">0xfffffff1</span>,</span><br><span class="line">    <span class="number">0x07</span>, <span class="number">0x28</span>, <span class="number">0x07</span>, <span class="number">0xffffff84</span>, <span class="number">0x07</span>, <span class="number">0xffffffc1</span>, <span class="number">0x07</span>, <span class="number">0x1e</span>,</span><br><span class="line">    <span class="number">0x07</span>, <span class="number">0x7a</span></span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="type">int</span> flag[<span class="number">100</span>];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">switch</span> (a1[v9])                           <span class="comment">// v9决定执行什么操作</span></span><br><span class="line">        &#123;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">1</span>:</span><br><span class="line">            ++v9;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">2</span>:</span><br><span class="line">            v9 += <span class="number">2</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">3</span>:</span><br><span class="line">            v9 += <span class="number">2</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">4</span>:</span><br><span class="line">            v9 += <span class="number">2</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">5</span>:</span><br><span class="line">            v9 += <span class="number">2</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">6</span>:</span><br><span class="line">            ++v9;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">7</span>:</span><br><span class="line">            <span class="comment">//printf(&quot;%d, &quot;, a1[v9 + 1]);//打印进行加密后的flag值</span></span><br><span class="line">            v9 += <span class="number">2</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">8</span>:</span><br><span class="line">            ++v9;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">10</span>:</span><br><span class="line"></span><br><span class="line">            <span class="built_in">scanf</span>(<span class="string">&quot;%s&quot;</span>, flag);                      </span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">&quot;%d, &quot;</span>, v9);</span><br><span class="line">            <span class="comment">//printf(&quot;%d, &quot;, a1[v9]);</span></span><br><span class="line">            ++v9;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">11</span>:</span><br><span class="line">            ++v9;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">12</span>:</span><br><span class="line">            ++v9;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;%d, &quot;</span>, v9);</span><br><span class="line">        <span class="comment">//printf(&quot;%d, &quot;,a1[v9]);//a1每次取值</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样得到的结果：</p>
+<p>最终需要比较的结果</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">enc_flag = &#123;<span class="number">0X22</span>, <span class="number">0X3F</span>, <span class="number">0X34</span>, <span class="number">0X32</span>, <span class="number">0X72</span>, <span class="number">0X33</span>, <span class="number">0X18</span>, <span class="number">0XFFFFFFA7</span>, <span class="number">0X31</span>, <span class="number">0XFFFFFFF1</span>, <span class="number">0X28</span>, <span class="number">0XFFFFFF84</span>, <span class="number">0XFFFFFFC1</span>, <span class="number">0X1E</span>, <span class="number">0X7A</span>&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>v9的值</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">order =&#123;<span class="number">1</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">9</span>, <span class="number">10</span>, <span class="number">12</span>, <span class="number">13</span>, <span class="number">15</span>, <span class="number">16</span>, <span class="number">17</span>, <span class="number">18</span>, <span class="number">19</span>, <span class="number">20</span>, <span class="number">22</span>, <span class="number">23</span>, <span class="number">25</span>, <span class="number">26</span>, <span class="number">28</span>, <span class="number">29</span>, <span class="number">30</span>, <span class="number">31</span>, <span class="number">32</span>, <span class="number">33</span>, <span class="number">35</span>, <span class="number">36</span>, <span class="number">38</span>, <span class="number">39</span>, <span class="number">41</span>, <span class="number">42</span>, <span class="number">44</span>, <span class="number">45</span>, <span class="number">46</span>, <span class="number">47</span>, <span class="number">48</span>, <span class="number">49</span>, <span class="number">51</span>, <span class="number">52</span>, <span class="number">54</span>, <span class="number">55</span>, <span class="number">57</span>, <span class="number">58</span>, <span class="number">60</span>, <span class="number">61</span>, <span class="number">63</span>, <span class="number">64</span>, <span class="number">66</span>, <span class="number">67</span>, <span class="number">69</span>, <span class="number">70</span>, <span class="number">72</span>, <span class="number">73</span>, <span class="number">75</span>, <span class="number">76</span>, <span class="number">78</span>, <span class="number">79</span>, <span class="number">81</span>, <span class="number">82</span>, <span class="number">83</span>, <span class="number">84</span>, <span class="number">86</span>, <span class="number">88</span>, <span class="number">90</span>, <span class="number">92</span>, <span class="number">94</span>, <span class="number">96</span>, <span class="number">98</span>, <span class="number">100</span>, <span class="number">102</span>, <span class="number">104</span>, <span class="number">106</span>, <span class="number">108</span>, <span class="number">110</span>, <span class="number">112</span>&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这样我们就得到了每次switch需要执行时需要使用的操作数的索引和最终需要生成的结果。加上已有的操作数数据，我们下一步需要去逆向算法。</p>
+<p>我们也可以打印出每次执行的a1的结果：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">a1 = &#123;<span class="number">10</span>, <span class="number">4</span>, <span class="number">8</span>, <span class="number">3</span>, <span class="number">1</span>, <span class="number">4</span>, <span class="number">8</span>, <span class="number">5</span>, <span class="number">1</span>, <span class="number">3</span>, <span class="number">8</span>, <span class="number">11</span>, <span class="number">1</span>, <span class="number">12</span>, <span class="number">8</span>, <span class="number">4</span>, <span class="number">1</span>, <span class="number">5</span>, <span class="number">8</span>, <span class="number">3</span>, <span class="number">1</span>, <span class="number">11</span>, <span class="number">8</span>, <span class="number">11</span>, <span class="number">1</span>, <span class="number">4</span>, <span class="number">8</span>, <span class="number">3</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">8</span>, <span class="number">4</span>, <span class="number">1</span>, <span class="number">12</span>, <span class="number">8</span>, <span class="number">11</span>, <span class="number">1</span>, <span class="number">5</span>, <span class="number">8</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">8</span>, <span class="number">4</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">8</span>, <span class="number">5</span>, <span class="number">1</span>, <span class="number">5</span>, <span class="number">8</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">4</span>, <span class="number">8</span>, <span class="number">3</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">8</span>, <span class="number">12</span>, <span class="number">1</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>观察a1发现后面执行的结果都是7，对应着操作数中“比较”的过程这就意味着整个程序先进行运算，最后都运算结束后统一进行比较。</p>
+<p>对代码进行修改和运行是一个比较麻烦的事情，在下面修改的代码中我会将注释写的尽量详细一些：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> __cdecl <span class="title">vm_operad</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> result; <span class="comment">// eax </span></span><br><span class="line">    <span class="type">int</span> v4; <span class="comment">// [esp+DBh] [ebp-1Dh]</span></span><br><span class="line">    <span class="type">int</span> v5; <span class="comment">// [esp+DCh] [ebp-1Ch]</span></span><br><span class="line">    <span class="type">int</span> v6; <span class="comment">// [esp+E0h] [ebp-18h]</span></span><br><span class="line">    <span class="type">int</span> v8; <span class="comment">// [esp+E8h] [ebp-10h]</span></span><br><span class="line">    <span class="type">int</span> v9; <span class="comment">// [esp+ECh] [ebp-Ch]</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> opcode[<span class="number">114</span>] = &#123;<span class="comment">//将opcode提取出来通常可以安装插件convert或者按shift+e</span></span><br><span class="line">    <span class="number">0x0000000A</span>, <span class="number">0x00000004</span>, <span class="number">0x00000010</span>, <span class="number">0x00000008</span>, <span class="number">0x00000003</span>, <span class="number">0x00000005</span>, <span class="number">0x00000001</span>, <span class="number">0x00000004</span>,</span><br><span class="line">    <span class="number">0x00000020</span>, <span class="number">0x00000008</span>, <span class="number">0x00000005</span>, <span class="number">0x00000003</span>, <span class="number">0x00000001</span>, <span class="number">0x00000003</span>, <span class="number">0x00000002</span>, <span class="number">0x00000008</span>, <span class="number">0x0000000B</span>,</span><br><span class="line">    <span class="number">0x00000001</span>, <span class="number">0x0000000C</span>, <span class="number">0x00000008</span>, <span class="number">0x00000004</span>, <span class="number">0x00000004</span>, <span class="number">0x00000001</span>, <span class="number">0x00000005</span>, <span class="number">0x00000003</span>,</span><br><span class="line">    <span class="number">0x00000008</span>, <span class="number">0x00000003</span>, <span class="number">0x00000021</span>, <span class="number">0x00000001</span>, <span class="number">0x0000000B</span>, <span class="number">0x00000008</span>, <span class="number">0x0000000B</span>, <span class="number">0x00000001</span>,</span><br><span class="line">    <span class="number">0x00000004</span>, <span class="number">0x00000009</span>, <span class="number">0x00000008</span>, <span class="number">0x00000003</span>, <span class="number">0x00000020</span>, <span class="number">0x00000001</span>, <span class="number">0x00000002</span>, <span class="number">0x00000051</span>,</span><br><span class="line">    <span class="number">0x00000008</span>, <span class="number">0x00000004</span>, <span class="number">0x00000024</span>, <span class="number">0x00000001</span>, <span class="number">0x0000000C</span>, <span class="number">0x00000008</span>, <span class="number">0x0000000B</span>, <span class="number">0x00000001</span>,</span><br><span class="line">    <span class="number">0x00000005</span>, <span class="number">0x00000002</span>, <span class="number">0x00000008</span>, <span class="number">0x00000002</span>, <span class="number">0x00000025</span>, <span class="number">0x00000001</span>, <span class="number">0x00000002</span>, <span class="number">0x00000036</span>,</span><br><span class="line">    <span class="number">0x00000008</span>, <span class="number">0x00000004</span>, <span class="number">0x00000041</span>, <span class="number">0x00000001</span>, <span class="number">0x00000002</span>, <span class="number">0x00000020</span>, <span class="number">0x00000008</span>, <span class="number">0x00000005</span>,</span><br><span class="line">    <span class="number">0x00000001</span>, <span class="number">0x00000001</span>, <span class="number">0x00000005</span>, <span class="number">0x00000003</span>, <span class="number">0x00000008</span>, <span class="number">0x00000002</span>, <span class="number">0x00000025</span>, <span class="number">0x00000001</span>,</span><br><span class="line">    <span class="number">0x00000004</span>, <span class="number">0x00000009</span>, <span class="number">0x00000008</span>, <span class="number">0x00000003</span>, <span class="number">0x00000020</span>, <span class="number">0x00000001</span>, <span class="number">0x00000002</span>, <span class="number">0x00000041</span>,</span><br><span class="line">    <span class="number">0x00000008</span>, <span class="number">0x0000000C</span>, <span class="number">0x00000001</span>, <span class="number">0x00000007</span>, <span class="number">0x00000022</span>, <span class="number">0x00000007</span>, <span class="number">0x0000003F</span>, <span class="number">0x00000007</span>,</span><br><span class="line">    <span class="number">0x00000034</span>, <span class="number">0x00000007</span>, <span class="number">0x00000032</span>, <span class="number">0x00000007</span>, <span class="number">0x00000072</span>, <span class="number">0x00000007</span>, <span class="number">0x00000033</span>, <span class="number">0x00000007</span>,</span><br><span class="line">    <span class="number">0x00000018</span>, <span class="number">0x00000007</span>, <span class="number">0xFFFFFFA7</span>, <span class="number">0x00000007</span>, <span class="number">0x00000031</span>, <span class="number">0x00000007</span>, <span class="number">0xFFFFFFF1</span>, <span class="number">0x00000007</span>,</span><br><span class="line">    <span class="number">0x00000028</span>, <span class="number">0x00000007</span>, <span class="number">0xFFFFFF84</span>, <span class="number">0x00000007</span>, <span class="number">0xFFFFFFC1</span>, <span class="number">0x00000007</span>, <span class="number">0x0000001E</span>, <span class="number">0x00000007</span>,</span><br><span class="line">    <span class="number">0x0000007A</span></span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="comment">//使用opcode的顺序即执行sitch的时候v9的顺序</span></span><br><span class="line">    <span class="type">char</span> order[<span class="number">100</span>] = &#123; <span class="number">1</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">9</span>, <span class="number">10</span>, <span class="number">12</span>, <span class="number">13</span>, <span class="number">15</span>, <span class="number">16</span>, <span class="number">17</span>, <span class="number">18</span>, <span class="number">19</span>, <span class="number">20</span>, <span class="number">22</span>, <span class="number">23</span>, <span class="number">25</span>, <span class="number">26</span>, <span class="number">28</span>, <span class="number">29</span>, <span class="number">30</span>, <span class="number">31</span>, <span class="number">32</span>, <span class="number">33</span>, <span class="number">35</span>, <span class="number">36</span>, <span class="number">38</span>, <span class="number">39</span>, <span class="number">41</span>, <span class="number">42</span>, <span class="number">44</span>, <span class="number">45</span>, <span class="number">46</span>, <span class="number">47</span>, <span class="number">48</span>, <span class="number">49</span>, <span class="number">51</span>, <span class="number">52</span>, <span class="number">54</span>, <span class="number">55</span>, <span class="number">57</span>, <span class="number">58</span>, <span class="number">60</span>, <span class="number">61</span>, <span class="number">63</span>, <span class="number">64</span>, <span class="number">66</span>, <span class="number">67</span>, <span class="number">69</span>, <span class="number">70</span>, <span class="number">72</span>, <span class="number">73</span>, <span class="number">75</span>, <span class="number">76</span>, <span class="number">78</span>, <span class="number">79</span>, <span class="number">81</span>, <span class="number">82</span>, <span class="number">83</span>, <span class="number">84</span>, <span class="number">86</span>, <span class="number">88</span>, <span class="number">90</span>, <span class="number">92</span>, <span class="number">94</span>, <span class="number">96</span>, <span class="number">98</span>, <span class="number">100</span>, <span class="number">102</span>, <span class="number">104</span>, <span class="number">106</span>, <span class="number">108</span>, <span class="number">110</span>, <span class="number">112</span>, <span class="number">114</span>&#125;;</span><br><span class="line">    <span class="comment">//最终比较的结果，我们需要把它按照算法进行逆过去</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">char</span> enc_flag[] = &#123; <span class="number">0X22</span>, <span class="number">0X3F</span>, <span class="number">0X34</span>, <span class="number">0X32</span>, <span class="number">0X72</span>, <span class="number">0X33</span>, <span class="number">0X18</span>, <span class="number">0XFFFFFFA7</span>, <span class="number">0X31</span>, <span class="number">0XFFFFFFF1</span>, <span class="number">0X28</span>, <span class="number">0XFFFFFF84</span>, <span class="number">0XFFFFFFC1</span>, <span class="number">0X1E</span>, <span class="number">0X7A</span> &#125;;</span><br><span class="line">    <span class="comment">//flag用来存储最终flag</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">char</span> flag[<span class="number">100</span>] = &#123;&#125;;</span><br><span class="line">    v8 = <span class="number">15</span>;</span><br><span class="line">    v6 = <span class="number">15</span>;</span><br><span class="line">    v5 = <span class="number">15</span>;</span><br><span class="line">    <span class="comment">//从后往前逆向需要从后向前索引</span></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="built_in">strlen</span>(order)<span class="number">-1</span>;i&gt;=<span class="number">0</span>;i--)<span class="comment">//从order最后一个数向第一个数推</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">//反方向进行逆向</span></span><br><span class="line">        v9 = order[i];<span class="comment">//v9每次取值，这样就不用对v9进行操作了</span></span><br><span class="line">        <span class="keyword">switch</span> (opcode[v9])                       </span><br><span class="line">       &#123;                                           </span><br><span class="line">        <span class="keyword">case</span> <span class="number">1</span>:</span><br><span class="line">            --v8;<span class="comment">//整个case结构的代码倒着写</span></span><br><span class="line">            --v6;</span><br><span class="line">            v4 = enc_flag[v6];<span class="comment">//这个地方在ida里显示的是v6+100地址与case 7对应比较的位置相同，所以对应着最后的比较结果的地址。</span></span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">2</span>:</span><br><span class="line">            flag[v8] = v4 - opcode[v9 + <span class="number">1</span>];<span class="comment">//这个flag是用户输入的地址，所以我们使用flag进行接收</span></span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">3</span>:</span><br><span class="line">            flag[v8] = v4 + opcode[v9 + <span class="number">1</span>];</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">4</span>:</span><br><span class="line">            flag[v8] = (opcode[v9 + <span class="number">1</span>] ^ v4) &amp; <span class="number">0xff</span>;<span class="comment">//抑或的时候容易产生溢出，所以需要&amp;0xff</span></span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">5</span>:</span><br><span class="line">            flag[v8] = v4 / opcode[v9 + <span class="number">1</span>];</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">6</span>:</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">8</span>:</span><br><span class="line">            --v5;</span><br><span class="line">            v4 = flag[v5];</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">10</span>:</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">11</span>:</span><br><span class="line">            flag[v8] = v4 + <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="number">12</span>:</span><br><span class="line">            flag[v8] = v4 - <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;%s&quot;</span>, flag);<span class="comment">//最后打印flag</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//757515121f3d478</span></span><br></pre></td></tr></table></figure>
+
+<p>另一种思路：</p>
+<p>可以进行动态调试找到每次使用的操作数和最后的比较结果，然后分析每次执行的过程，每次进行逆向。</p>
+<p>其他就是使用符号执行的方法了，不在本次基本解题讨论之中。</p>
+<h2 id="VM解题总结"><a href="#VM解题总结" class="headerlink" title="VM解题总结"></a>VM解题总结</h2><p>vm题目的基本结构就像在定义中提供的图片那样，它使用调度器使不同的流程对应不同的操作码以此干扰分析者常规分析的思路。基于以上的学习我们可以简单的总结一下这些题目应该怎么做：</p>
+<p>1.找到程序每次都取哪个操作数（执行哪个流程），并提取出来</p>
+<p>2.找到程序经过VM各过程加密运算的结果</p>
+<p>3.逆向VM加密函数</p>
+<h2 id="其他内容"><a href="#其他内容" class="headerlink" title="其他内容"></a>其他内容</h2><h3 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h3><p><a target="_blank" rel="noopener" href="https://www.52pojie.cn/thread-1176826-1-1.html">2020网鼎杯青龙组部分逆向题 - 『脱壳破解区』 - 吾爱破解 - LCG - LSG |安卓破解|病毒分析|www.52pojie.cn</a></p>
+<p><a target="_blank" rel="noopener" href="http://ronpa.top/2018/08/08/%E5%8D%97%E9%82%AECTF-wp/">南邮CTF_wp | Ronpa的博客</a></p>
+<p><a target="_blank" rel="noopener" href="https://forum.butian.net/share/1195">奇安信攻防社区-那CTF，那VMre，那些事（一） (butian.net)</a></p>
+<p><a target="_blank" rel="noopener" href="https://lingze.xyz/pages/7885eb/">vm | Lingze’s blog</a></p>
+<h3 id="题目链接"><a href="#题目链接" class="headerlink" title="题目链接"></a>题目链接</h3><p>链接：<a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1lduWDMdc329LO-kJJv23Mw?pwd=wg7v">https://pan.baidu.com/s/1lduWDMdc329LO-kJJv23Mw?pwd=wg7v</a><br>提取码：wg7v</p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>A_Niucw
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://example.com/2022/10/12/VM%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%86%E5%90%91%E6%80%BB%E7%BB%93/" title="VM虚拟机逆向总结">http://example.com/2022/10/12/VM虚拟机逆向总结/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/10/06/%E8%BF%99%E6%98%AF%E4%B8%80%E4%B8%AA%E5%BC%80%E5%A7%8B/" rel="prev" title="这是一个开始">
+      <i class="fa fa-chevron-left"></i> 这是一个开始
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/10/14/PlugX%E6%A0%B7%E6%9C%AC%E5%88%86%E6%9E%90/" rel="next" title="PlugX样本分析">
+      PlugX样本分析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#VM%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%86%E5%90%91%E6%80%BB%E7%BB%93"><span class="nav-number">1.</span> <span class="nav-text">VM虚拟机逆向总结</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#VM%E5%AE%9A%E4%B9%89-x2F-%E5%8E%9F%E7%90%86"><span class="nav-number">1.1.</span> <span class="nav-text">VM定义&#x2F;原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#VM%E7%9A%84%E5%AE%9A%E4%B9%89%EF%BC%9A"><span class="nav-number">1.1.1.</span> <span class="nav-text">VM的定义：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A3%E9%87%8A"><span class="nav-number">1.1.2.</span> <span class="nav-text">解释</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#VM%E8%B0%83%E5%BA%A6%E6%96%B9%E5%BC%8F"><span class="nav-number">1.2.</span> <span class="nav-text">VM调度方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#switch"><span class="nav-number">1.2.1.</span> <span class="nav-text">switch :</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ifnest"><span class="nav-number">1.2.2.</span> <span class="nav-text">ifnest :</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#VM%E7%9B%B8%E5%85%B3%E4%BE%8B%E9%A2%98"><span class="nav-number">1.3.</span> <span class="nav-text">VM相关例题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#WxyVM1%EF%BC%88%E7%BB%8F%E5%85%B8VM%E9%80%86%E5%90%91%E9%A2%98%E7%9B%AE%EF%BC%89"><span class="nav-number">1.3.1.</span> <span class="nav-text">WxyVM1（经典VM逆向题目）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#WxyVM2%EF%BC%88%E7%BB%8F%E5%85%B8VM%E9%80%86%E5%90%91%E9%A2%98%E7%9B%AE%EF%BC%89"><span class="nav-number">1.3.2.</span> <span class="nav-text">WxyVM2（经典VM逆向题目）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#signal%EF%BC%882020%E7%BD%91%E9%BC%8E%E6%9D%AF%E9%9D%92%E9%BE%99%E7%BB%84%E9%A2%98%E7%9B%AE%EF%BC%89"><span class="nav-number">1.3.3.</span> <span class="nav-text">signal（2020网鼎杯青龙组题目）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#VM%E8%A7%A3%E9%A2%98%E6%80%BB%E7%BB%93"><span class="nav-number">1.4.</span> <span class="nav-text">VM解题总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E5%86%85%E5%AE%B9"><span class="nav-number">1.5.</span> <span class="nav-text">其他内容</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="nav-number">1.5.1.</span> <span class="nav-text">参考链接</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%A2%98%E7%9B%AE%E9%93%BE%E6%8E%A5"><span class="nav-number">1.5.2.</span> <span class="nav-text">题目链接</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="A_Niucw"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">A_Niucw</p>
+  <div class="site-description" itemprop="description">静下来搞技术</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+<iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=330 height=86 src="//music.163.com/outchain/player?type=2&id=1962385461&auto=1&height=66"></iframe>
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">A_Niucw</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
